@@ -2,19 +2,32 @@
 #include <stdlib.h>
 #include "error_handler.h"
 
+#define machine_size 512
+
 /*struct def {
 	char symbol[16];
 	int value;
 }
 
 struct defList {
-	int numDefs;
-	struct def [];
+	struct def defL[16];
+}
+
+struct use {
+	char symbol[16];
 }
 
 struct useList {
-	int useCount;
-	struct ???;
+	struct use useL[16];
+}
+
+struct instruction {
+	char type;
+	int address;
+}
+
+struct programText {
+	struct instruction instL[machine_size];
 }
 
 typedef struct module {
