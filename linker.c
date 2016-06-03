@@ -1,5 +1,38 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "error_handler.h"
+
+/*struct def {
+	char symbol[16];
+	int value;
+}
+
+struct defList {
+	int numDefs;
+	struct def [];
+}
+
+struct useList {
+	int useCount;
+	struct ???;
+}
+
+typedef struct module {
+	int position;
+	struct defList dl;
+	struct useList ul;
+	struct programText pt;
+}*/
+
+enum Entity {
+	definitions,
+	uses,
+	instructions,
+	symbol,
+	location,
+	inst_type,
+	instruction
+};
 
 int main() {
 	//get filename
@@ -17,9 +50,52 @@ int main() {
 	}
 
 	char nextChar;
+	enum Entity nextType = definitions;
+
 	while(fscanf(fp, "%c", &nextChar) != EOF) {
 		//printf("%c", nextChar); //debug
-	}
+		int defsRemaining = 0;
+		int usesRemaining = 0;
+		int instructionsRemaining = 0;
+
+		//skip whitespace
+		if(nextChar != ' ' && nextChar != '\t' && nextChar != '\n'){
+			
+			if(defsRemaining > 0) {
+				
+				defsRemaining--;
+				
+				if(defsRemaining == 0) {
+					nextType = uses;
+				}
+			} else if(usesRemaining > 0) {
+
+				usesRemaining--;
+
+				if(usesRemaining == 0) {
+					nextType = instructions;
+				}
+			} else if(instructionsRemaining > 0) {
+
+				instructionsRemaining--;
+
+				if(instructionsRemaining == 0) {
+					nextType = definitions;
+				}
+			} else { //next char is a count of pairs or uses
+				if(nextType == definitions) {
+					//capture symbol and value for each def
+					defsRemaining = (int)(nextChar - '0') * 2;
+				} else if(nextType == uses) {
+					usesRemaining = (int)(nextChar - '0');
+				} else if(nextType == instructions) {
+					instructionsRemaining = (int)(nextChar - '0') * 2;
+				}
+			}
+
+		}//end skip whitespace
+		
+	}//end loop
 
 	fclose(fp);
 
