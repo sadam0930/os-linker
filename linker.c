@@ -59,7 +59,9 @@ enum Entity {
 
 struct symbol {
 	char symbolDef[16];
-	int value;
+	int numChar;
+	//int relvalue;
+	int absvalue;
 };
 
 struct symbolTable {
@@ -93,19 +95,22 @@ int main() {
 	ml.numModules = 0;
 	struct symbolTable st;
 	st.numSymbols = 0;
+
 	char tempSym[16];
 	int tempSymSize = 0;
+	int tempSymValue[512];
+	int tempSymValuePos = 0;
 
 	int defsRemaining = 0;
 	int usesRemaining = 0;
 	int instructionsRemaining = 0;
 	int nextMemLocation = 0;
 
-	bool isDefValue = false;
+	bool isDefSym = false;
 	bool isWord = false;
 
 	while(fscanf(fp, "%c", &curChar) != EOF) {
-		//printf("%c", curChar); //debug
+		//printf("%c\n", curChar); //debug
 		
 		/*
 		peek at next character
@@ -125,15 +130,72 @@ int main() {
 			if(defsRemaining > 0) {
 				//printf("DR > 0\n"); //debug
 				
-				/*//collect each char for symbol
-				tempSym[0] = curChar;
-				tempSymSize++;*/
+				if(defsRemaining%2 == 0){
+					isDefSym = true;
+				} else {
+					isDefSym = false;
+				}
+
+				if(isDefSym){
+					//collect each char for symbol
+					tempSym[tempSymSize] = curChar;
+					tempSymSize++;
+				} else {
+					//curChar is a relative symbol value
+					tempSymValue[tempSymValuePos] = (int)(curChar - '0');
+					tempSymValuePos++;
+					//printf("tempSymValue = %d\n", tempSymValue[tempSymValuePos-1]); //debug
+				}
 
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
-					/*struct symbol;
-					st.numSymbols++;
-					//reset temp symbol size for next symbol
-					tempSymSize = 0;*/
+					//put symbol in symbol table
+					if(isDefSym){
+						//printf("making symbol\n"); //debug
+
+						struct symbol new_symbol;
+						new_symbol.numChar = 0;
+
+						int i;
+						for(i=0; i < tempSymSize; i++){
+							//printf("tempSymSize = %d\n", i); //debug
+							//printf("tempSym = %c\n", tempSym[i]); //debug
+							new_symbol.symbolDef[i] = tempSym[i];
+							new_symbol.numChar++;
+						}
+						st.symbolL[st.numSymbols] = new_symbol;
+
+						//reset temp symbol size for next symbol
+						tempSymSize = 0;
+					} else {
+						//printf("in else\n"); //debug
+
+						//curChar is a relative symbol value
+						//construct relative value from captured values in tempSymValue array
+						int symValue = 0;
+						int i;
+						int decimalPower = 0;
+						//[1.2,3,4]
+						//tempSymValuePos = 4
+						for(i=tempSymValuePos; i > 0; i--){
+							//printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+							int multiplier = 10;
+							if(decimalPower == 0){
+								multiplier = 1;
+							} else {
+								multiplier ^= decimalPower;
+							}
+							//printf("multiplier = %d\n", multiplier); //debug
+							symValue += tempSymValue[i-1] * multiplier;
+							//printf("symValue = %d\n", symValue); //debug
+							decimalPower++;
+						}
+						//st.symbolL[st.numSymbols].relvalue = symValue;
+						st.symbolL[st.numSymbols].absvalue = ml.mlist[ml.numModules-1].start_position + symValue;
+
+						tempSymValuePos = 0;
+						//end of this symbol; increment symbol table count
+						st.numSymbols++;
+					}
 
 					defsRemaining--;
 					//printf("DR -- %d\n", defsRemaining); //debug
@@ -194,12 +256,36 @@ int main() {
 			//printf("usesRemaining = %d \n", usesRemaining); //debug
 			//printf("instructionsRemaining = %d  \n", instructionsRemaining); //debug
 			//printf("nextType = %d\n", nextType); //debug
+			/*int i;
+			for(i=0; i<st.numSymbols; i++){
+				int j;
+				printf("symbol value = ");
+				for(j=0; j < st.symbolL[i].numChar; j++){
+					printf("%c", st.symbolL[i].symbolDef[j]);
+				}
+				printf(" \n");
+				printf("relative symbol value = %d\n", st.symbolL[i].relvalue);
+				printf("absolute symbol value = %d\n", st.symbolL[i].absvalue);
+			}*/
 		}//end skip whitespace
 		
 	}//end loop
 
-	fclose(fp);
+	//print symbol table after first pass
+	printf("Symbol Table\n");
+	int i;
+	for(i=0; i<st.numSymbols; i++){
+		int j;
+		for(j=0; j<st.symbolL[i].numChar; j++){
+			printf("%c", st.symbolL[i].symbolDef[j]);
+		}
+		printf("=");
+		printf("%d", st.symbolL[i].absvalue);
+	}
+	printf("\n");
 
+
+	fclose(fp);
 
 	return 0;
 }	
