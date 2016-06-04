@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "error_handler.h"
 
 #define machine_size 512
@@ -68,10 +69,10 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char filename[max_filename_size];
-	printf("Enter filename: ");
-	scanf("%s", filename);
-	//printf("%s\n", filename); //debug
+	char * filename = "labsamples/input-1";
+	// char filename[max_filename_size];
+	// printf("Enter filename: ");
+	// scanf("%s", filename);
 
 	//read file character by character
 	FILE *fp;
@@ -81,7 +82,7 @@ int main() {
 		exit(1);
 	}
 
-	char nextChar;
+	char curChar;
 	enum Entity nextType = definitions;
 	
 	/*
@@ -92,34 +93,69 @@ int main() {
 	ml.numModules = 0;
 	struct symbolTable st;
 	st.numSymbols = 0;
+	char tempSym[16];
+	int tempSymSize = 0;
 
-	while(fscanf(fp, "%c", &nextChar) != EOF) {
-		//printf("%c", nextChar); //debug
-		int defsRemaining = 0;
-		int usesRemaining = 0;
-		int instructionsRemaining = 0;
-		int nextMemLocation = 0;
+	int defsRemaining = 0;
+	int usesRemaining = 0;
+	int instructionsRemaining = 0;
+	int nextMemLocation = 0;
+
+	bool isDefValue = false;
+	bool isWord = false;
+
+	while(fscanf(fp, "%c", &curChar) != EOF) {
+		//printf("%c", curChar); //debug
+		
+		/*
+		peek at next character
+		used to group symbols and program words together
+		move file pointer back to keep while loop logic consistent
+		*/
+		char nextChar;
+		if (fscanf(fp, "%c", &nextChar) != EOF) {
+			fseek(fp, -1, SEEK_CUR);
+		}
+		
 
 		//skip whitespace
-		if(nextChar != ' ' && nextChar != '\t' && nextChar != '\n'){
+		if(curChar != ' ' && curChar != '\t' && curChar != '\n'){
+			//printf("*****curChar = %c \n", curChar); //debug
 			
 			if(defsRemaining > 0) {
+				//printf("DR > 0\n"); //debug
 				
-				defsRemaining--;
+				/*//collect each char for symbol
+				tempSym[0] = curChar;
+				tempSymSize++;*/
+
+				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					/*struct symbol;
+					st.numSymbols++;
+					//reset temp symbol size for next symbol
+					tempSymSize = 0;*/
+
+					defsRemaining--;
+					//printf("DR -- %d\n", defsRemaining); //debug
+				}
 				
 				if(defsRemaining == 0) {
 					nextType = uses;
 				}
 			} else if(usesRemaining > 0) {
-
-				usesRemaining--;
+				//printf("UR > 0\n"); //debug
+				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					usesRemaining--;
+				}
 
 				if(usesRemaining == 0) {
 					nextType = instructions;
 				}
 			} else if(instructionsRemaining > 0) {
-
-				instructionsRemaining--;
+				//printf("IR > 0\n"); //debug
+				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					instructionsRemaining--;
+				}
 
 				if(instructionsRemaining == 0) {
 					nextType = definitions;
@@ -130,30 +166,34 @@ int main() {
 					new_module.start_position = nextMemLocation;
 					ml.mlist[ml.numModules] = new_module;
 					ml.numModules++;
+					//printf("start position = %d\n", new_module.start_position); //debug
 
 					//capture symbol and value for each def
-					defsRemaining = (int)(nextChar - '0') * 2;
+					defsRemaining = (int)(curChar - '0') * 2;
 
 					if(defsRemaining == 0){
 						nextType = uses;
 					}
 				} else if(nextType == uses) {
-					usesRemaining = (int)(nextChar - '0');
+					usesRemaining = (int)(curChar - '0');
 
 					if(usesRemaining == 0) {
 						nextType = instructions;
 					}
 				} else if(nextType == instructions) {
 					//capture type and 'word' for each instruction
-					instructionsRemaining = (int)(nextChar - '0') * 2;
-					nextMemLocation += (int)(nextChar - '0');
+					instructionsRemaining = (int)(curChar - '0') * 2;
+					nextMemLocation += (int)(curChar - '0');
 					
 					if(instructionsRemaining == 0) {
 						nextType = definitions;
 					}
 				}
 			}
-
+			//printf("defsRemaining = %d  \n", defsRemaining); //debug
+			//printf("usesRemaining = %d \n", usesRemaining); //debug
+			//printf("instructionsRemaining = %d  \n", instructionsRemaining); //debug
+			//printf("nextType = %d\n", nextType); //debug
 		}//end skip whitespace
 		
 	}//end loop
