@@ -7,18 +7,28 @@
 #define machine_size 512
 #define max_filename_size 255
 
-struct def {
-	char symbol[16];
-	int value;
+// struct def {
+// 	char symbol[16];
+// 	int value;
+// };
+
+struct symbol {
+	char symbolDef[16];
+	int numChar;
+	int relvalue;
+	int absvalue;
+	bool isDuplicate;
+	bool valToBig;
 };
 
 struct defList {
 	int numDefs;
-	struct def defL[16];
+	struct symbol defL[16];
 };
 
 struct use {
 	char symbol[16];
+	int numChar;
 };
 
 struct useList {
@@ -28,9 +38,12 @@ struct useList {
 
 struct instruction {
 	char type;
-	int opcode;
-	int address;
-	int immediate;
+	char strInstr[16];
+	int numChar;
+	// int opcode;
+	// int reladdress;
+	// int absaddress;
+	// int immediate;
 };
 
 struct programText {
@@ -40,9 +53,10 @@ struct programText {
 
 typedef struct module {
 	int start_position;
-	//struct defList dl;
-	//struct useList ul;
-	//struct programText pt;
+	int module_size;
+	struct defList dl;
+	struct useList ul;
+	struct programText pt;
 } module;
 
 struct moduleList {
@@ -54,19 +68,6 @@ enum Entity {
 	definitions,
 	uses,
 	instructions
-	//symbol,
-	//location,
-	//inst_type,
-	//instruction
-};
-
-struct symbol {
-	char symbolDef[16];
-	int numChar;
-	int relvalue;
-	int absvalue;
-	bool isDuplicate;
-	bool valToBig;
 };
 
 struct symbolTable {
@@ -100,8 +101,7 @@ int main() {
 	ml.numModules = 0;
 	struct symbolTable st;
 	st.numSymbols = 0;
-	struct useList ul;
-	ul.numUses = 0;
+	int totalInstructions = 0;
 
 	char tempSym[16];
 	int tempSymSize = 0;
@@ -114,12 +114,12 @@ int main() {
 	int nextMemLocation = 0;
 
 	bool isDefSym = false;
-	bool isWord = false;
+	bool isInstType = false;
 	bool isDuplicate = false;
 
 	//FIRST PASS
 	while(fscanf(fp, "%c", &curChar) != EOF) {
-		//printf("%c\n", curChar); //debug
+		//printf("curChar = %c\n", curChar); //debug
 		
 		/*
 		peek at next character
@@ -183,6 +183,7 @@ int main() {
 								new_symbol.numChar++;
 							}
 							st.symbolL[st.numSymbols] = new_symbol;
+							ml.mlist[ml.numModules-1].dl.defL[ml.mlist[ml.numModules-1].dl.numDefs] = new_symbol;
 						}
 
 						//reset temp symbol size for next symbol
@@ -195,8 +196,6 @@ int main() {
 							int symValue = 0;
 							int i;
 							int decimalPower = 0;
-							//[1.2,3,4]
-							//tempSymValuePos = 4
 							for(i=tempSymValuePos; i > 0; i--){
 								//printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
 								int multiplier = 10;
@@ -211,11 +210,13 @@ int main() {
 								decimalPower++;
 							}
 							st.symbolL[st.numSymbols].relvalue = symValue;
+							ml.mlist[ml.numModules-1].dl.defL[ml.mlist[ml.numModules-1].dl.numDefs].relvalue = symValue;
 							//st.symbolL[st.numSymbols].absvalue = ml.mlist[ml.numModules-1].start_position + symValue;
 
 							tempSymValuePos = 0;
 							//end of this symbol; increment symbol table count
 							st.numSymbols++;
+							ml.mlist[ml.numModules-1].dl.numDefs++;
 						}
 					}
 
@@ -228,9 +229,26 @@ int main() {
 				}
 			} else if(usesRemaining > 0) {
 				//printf("UR > 0\n"); //debug
-				//ml.mlist[numModules-1].
+				//construct symbol to put into uselist
+				tempSym[tempSymSize] = curChar;
+				tempSymSize++;
 
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					struct module thisMod = ml.mlist[ml.numModules-1];
+					int i;
+					for (i=0; i < tempSymSize; i++){
+						thisMod.ul.useL[thisMod.ul.numUses].symbol[i] = tempSym[i];
+						thisMod.ul.useL[thisMod.ul.numUses].numChar++;
+					}
+					/*printf("symbol in use: "); //deb
+					for(i=0; i<thisMod.ul.useL[thisMod.ul.numUses].numChar; i++){
+						printf("%c", thisMod.ul.useL[thisMod.ul.numUses].symbol[i]);//debug	
+					}
+					printf("\n");*/
+					thisMod.ul.numUses++;
+
+					//reset tempSym
+					tempSymSize = 0;
 					usesRemaining--;
 				}
 
@@ -270,29 +288,20 @@ int main() {
 					//capture type and 'word' for each instruction
 					instructionsRemaining = (int)(curChar - '0') * 2;
 					nextMemLocation += (int)(curChar - '0');
+					totalInstructions += nextMemLocation;
+
 
 					/*
 					nextMemLocation is also the size of the current module plus 1 (0 based counting)
-					check symbol values do not exceed the module size
 					*/
-					if(st.symbolL[st.numSymbols-1].relvalue > nextMemLocation-1){
-						printf("Warning: Module %d: ", ml.numModules);
-						int i;
-						for(i=0; i < st.symbolL[st.numSymbols-1].numChar; i++){
-							printf("%c", st.symbolL[st.numSymbols-1].symbolDef[i]);
-						}
-						printf(" to big %d (max=%d) assume zero relative\n", st.symbolL[st.numSymbols-1].relvalue, nextMemLocation-1);
-						st.symbolL[st.numSymbols-1].absvalue = ml.mlist[ml.numModules-1].start_position + 0;
-					} else {
-						st.symbolL[st.numSymbols-1].absvalue = ml.mlist[ml.numModules-1].start_position + st.symbolL[st.numSymbols-1].relvalue;
-					}
+					ml.mlist[ml.numModules-1].module_size = nextMemLocation;
 					
 					if(instructionsRemaining == 0) {
 						nextType = definitions;
 					}
 				}
 			}
-			//printf("defsRemaining = %d  \n", defsRemaining); //debug
+			// printf("defsRemaining = %d  \n", defsRemaining); //debug
 			//printf("usesRemaining = %d \n", usesRemaining); //debug
 			//printf("instructionsRemaining = %d  \n", instructionsRemaining); //debug
 			//printf("nextType = %d\n", nextType); //debug
@@ -306,10 +315,32 @@ int main() {
 				printf(" \n");
 				printf("relative symbol value = %d\n", st.symbolL[i].relvalue);
 				printf("absolute symbol value = %d\n", st.symbolL[i].absvalue);
-			}*/
+			}//debug*/
 		}//end skip whitespace
 		
 	}//END FIRST PASS
+
+	//check symbol values do not exceed the module size
+	int whichSym = 0;
+	int z;
+	for(z=0; z < ml.numModules; z++){
+		struct defList dl = ml.mlist[z].dl;
+		int j;
+		for(j=0; j < dl.numDefs; j++){
+			if(dl.defL[j].relvalue > ml.mlist[z].module_size-1){
+				printf("Warning: Module %d: ", z);
+				int k;
+				for(k=0; k < dl.defL[j].numChar; k++){
+					printf("%c", dl.defL[j].symbolDef[k]);
+				}
+				printf(" to big %d (max=%d) assume zero relative\n", dl.defL[j].relvalue, ml.mlist[z].module_size-1);
+				st.symbolL[whichSym].absvalue = dl.defL[j].absvalue = ml.mlist[z].start_position + 0;
+			} else {
+				st.symbolL[whichSym].absvalue = dl.defL[j].absvalue = ml.mlist[z].start_position + dl.defL[j].relvalue;
+			}
+			whichSym++;
+		}
+	}
 
 	//print symbol table after first pass
 	printf("Symbol Table\n");
@@ -327,14 +358,16 @@ int main() {
 		printf("\n");
 	}
 	printf("\n");
+	printf("Memory Map\n");
 
 	//START SECOND PASS
 	//start from the top
 	rewind(fp);
-	//reset variable pointers
+	struct module curMod;
+	int whichModule = -1;
 
 	while(fscanf(fp, "%c", &curChar) != EOF) {
-		printf("%c\n", curChar); //debug
+		//printf("%c\n", curChar); //debug
 		
 		/*
 		peek at next character
@@ -346,7 +379,6 @@ int main() {
 			fseek(fp, -1, SEEK_CUR);
 		}
 		
-
 		//skip whitespace
 		if(curChar != ' ' && curChar != '\t' && curChar != '\n'){
 			//printf("*****curChar = %c \n", curChar); //debug
@@ -394,7 +426,34 @@ int main() {
 				}
 			} else if(instructionsRemaining > 0) {
 				//printf("IR > 0\n"); //debug
+
+				if(instructionsRemaining%2 == 0){
+					isInstType = true;
+				} else {
+					isInstType = false;
+				}
+
+				//get each digit of address/immediate
+				if(!isInstType){
+					tempSym[tempSymSize] = curChar;
+					tempSymSize++;
+				}
+
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					if(isInstType){	
+						curMod.pt.instL[curMod.pt.numInst].type = curChar;
+					} else {
+						//it's an address or immediate instruction
+						int i;
+						for(i=0; i < tempSymSize; i++){
+							curMod.pt.instL[curMod.pt.numInst].strInstr[i] = tempSym[i];
+						}
+						//print memory map
+						printf("%03d: \n", curMod.start_position + curMod.pt.numInst);
+
+						curMod.pt.numInst++;
+					}
+
 					instructionsRemaining--;
 				}
 
@@ -404,6 +463,9 @@ int main() {
 			} else { //next char is a count of pairs or uses
 				if(nextType == definitions) {
 					//start module
+					whichModule++;
+					curMod = ml.mlist[whichModule];
+
 					//capture symbol and value for each def
 					defsRemaining = (int)(curChar - '0') * 2;
 
@@ -419,7 +481,6 @@ int main() {
 				} else if(nextType == instructions) {
 					//capture type and 'word' for each instruction
 					instructionsRemaining = (int)(curChar - '0') * 2;
-					nextMemLocation += (int)(curChar - '0');
 					
 					if(instructionsRemaining == 0) {
 						nextType = definitions;
