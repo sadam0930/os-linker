@@ -163,6 +163,7 @@ int main() {
 
 						//check for duplicate symbol already in symbol table
 						int i;
+						isDuplicate = false;
 						for(i=0; i < st.numSymbols; i++){
 							if(strcmp(tempSym, st.symbolL[i].symbolDef) == 0){
 								isDuplicate = true;
@@ -227,7 +228,7 @@ int main() {
 				}
 			} else if(usesRemaining > 0) {
 				//printf("UR > 0\n"); //debug
-
+				//ml.mlist[numModules-1].
 
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
 					usesRemaining--;
@@ -326,6 +327,108 @@ int main() {
 		printf("\n");
 	}
 	printf("\n");
+
+	//START SECOND PASS
+	//start from the top
+	rewind(fp);
+	//reset variable pointers
+
+	while(fscanf(fp, "%c", &curChar) != EOF) {
+		printf("%c\n", curChar); //debug
+		
+		/*
+		peek at next character
+		used to group symbols and program words together
+		move file pointer back to keep while loop logic consistent
+		*/
+		char nextChar;
+		if (fscanf(fp, "%c", &nextChar) != EOF) {
+			fseek(fp, -1, SEEK_CUR);
+		}
+		
+
+		//skip whitespace
+		if(curChar != ' ' && curChar != '\t' && curChar != '\n'){
+			//printf("*****curChar = %c \n", curChar); //debug
+			
+			if(defsRemaining > 0) {
+				//printf("DR > 0\n"); //debug
+				
+				if(defsRemaining%2 == 0){
+					isDefSym = true;
+				} else {
+					isDefSym = false;
+				}
+
+				if(isDefSym){
+					
+				} else {
+					
+				}
+
+				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					//put symbol in symbol table
+					if(isDefSym){
+						
+					} else {
+						//printf("in else\n"); //debug
+
+						//curChar is a relative symbol value
+					}
+
+					defsRemaining--;
+					//printf("DR -- %d\n", defsRemaining); //debug
+				}
+				
+				if(defsRemaining == 0) {
+					nextType = uses;
+				}
+			} else if(usesRemaining > 0) {
+				//printf("UR > 0\n"); //debug
+				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					usesRemaining--;
+				}
+
+				if(usesRemaining == 0) {
+					nextType = instructions;
+				}
+			} else if(instructionsRemaining > 0) {
+				//printf("IR > 0\n"); //debug
+				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					instructionsRemaining--;
+				}
+
+				if(instructionsRemaining == 0) {
+					nextType = definitions;
+				}
+			} else { //next char is a count of pairs or uses
+				if(nextType == definitions) {
+					//start module
+					//capture symbol and value for each def
+					defsRemaining = (int)(curChar - '0') * 2;
+
+					if(defsRemaining == 0){
+						nextType = uses;
+					}
+				} else if(nextType == uses) {
+					usesRemaining = (int)(curChar - '0');
+
+					if(usesRemaining == 0) {
+						nextType = instructions;
+					}
+				} else if(nextType == instructions) {
+					//capture type and 'word' for each instruction
+					instructionsRemaining = (int)(curChar - '0') * 2;
+					nextMemLocation += (int)(curChar - '0');
+					
+					if(instructionsRemaining == 0) {
+						nextType = definitions;
+					}
+				}
+			}
+		}//end skip whitespace
+		
+	}//END SECOND PASS
 
 
 	fclose(fp);
