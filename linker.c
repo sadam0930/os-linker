@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include "error_handler.h"
 
 #define machine_size 512
@@ -27,7 +28,9 @@ struct useList {
 
 struct instruction {
 	char type;
+	int opcode;
 	int address;
+	int immediate;
 };
 
 struct programText {
@@ -37,9 +40,9 @@ struct programText {
 
 typedef struct module {
 	int start_position;
-	struct defList dl;
-	struct useList ul;
-	struct programText pt;
+	//struct defList dl;
+	//struct useList ul;
+	//struct programText pt;
 } module;
 
 struct moduleList {
@@ -50,18 +53,20 @@ struct moduleList {
 enum Entity {
 	definitions,
 	uses,
-	instructions,
-	symbol,
-	location,
-	inst_type,
-	instruction
+	instructions
+	//symbol,
+	//location,
+	//inst_type,
+	//instruction
 };
 
 struct symbol {
 	char symbolDef[16];
 	int numChar;
-	//int relvalue;
+	int relvalue;
 	int absvalue;
+	bool isDuplicate;
+	bool valToBig;
 };
 
 struct symbolTable {
@@ -71,7 +76,7 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-1";
+	char * filename = "labsamples/input-10";
 	// char filename[max_filename_size];
 	// printf("Enter filename: ");
 	// scanf("%s", filename);
@@ -95,6 +100,8 @@ int main() {
 	ml.numModules = 0;
 	struct symbolTable st;
 	st.numSymbols = 0;
+	struct useList ul;
+	ul.numUses = 0;
 
 	char tempSym[16];
 	int tempSymSize = 0;
@@ -108,7 +115,9 @@ int main() {
 
 	bool isDefSym = false;
 	bool isWord = false;
+	bool isDuplicate = false;
 
+	//FIRST PASS
 	while(fscanf(fp, "%c", &curChar) != EOF) {
 		//printf("%c\n", curChar); //debug
 		
@@ -152,49 +161,61 @@ int main() {
 					if(isDefSym){
 						//printf("making symbol\n"); //debug
 
-						struct symbol new_symbol;
-						new_symbol.numChar = 0;
-
+						//check for duplicate symbol already in symbol table
 						int i;
-						for(i=0; i < tempSymSize; i++){
-							//printf("tempSymSize = %d\n", i); //debug
-							//printf("tempSym = %c\n", tempSym[i]); //debug
-							new_symbol.symbolDef[i] = tempSym[i];
-							new_symbol.numChar++;
+						for(i=0; i < st.numSymbols; i++){
+							if(strcmp(tempSym, st.symbolL[i].symbolDef) == 0){
+								isDuplicate = true;
+								st.symbolL[i].isDuplicate = true;
+								break;
+							}
 						}
-						st.symbolL[st.numSymbols] = new_symbol;
+
+						if(!isDuplicate){
+							struct symbol new_symbol;
+							new_symbol.numChar = 0;
+
+							for(i=0; i < tempSymSize; i++){
+								//printf("tempSymSize = %d\n", i); //debug
+								//printf("tempSym = %c\n", tempSym[i]); //debug
+								new_symbol.symbolDef[i] = tempSym[i];
+								new_symbol.numChar++;
+							}
+							st.symbolL[st.numSymbols] = new_symbol;
+						}
 
 						//reset temp symbol size for next symbol
 						tempSymSize = 0;
 					} else {
 						//printf("in else\n"); //debug
-
 						//curChar is a relative symbol value
-						//construct relative value from captured values in tempSymValue array
-						int symValue = 0;
-						int i;
-						int decimalPower = 0;
-						//[1.2,3,4]
-						//tempSymValuePos = 4
-						for(i=tempSymValuePos; i > 0; i--){
-							//printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
-							int multiplier = 10;
-							if(decimalPower == 0){
-								multiplier = 1;
-							} else {
-								multiplier ^= decimalPower;
+						if(!isDuplicate){
+							//construct relative value from captured values in tempSymValue array
+							int symValue = 0;
+							int i;
+							int decimalPower = 0;
+							//[1.2,3,4]
+							//tempSymValuePos = 4
+							for(i=tempSymValuePos; i > 0; i--){
+								//printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+								int multiplier = 10;
+								if(decimalPower == 0){
+									multiplier = 1;
+								} else {
+									multiplier ^= decimalPower;
+								}
+								//printf("multiplier = %d\n", multiplier); //debug
+								symValue += tempSymValue[i-1] * multiplier;
+								//printf("symValue = %d\n", symValue); //debug
+								decimalPower++;
 							}
-							//printf("multiplier = %d\n", multiplier); //debug
-							symValue += tempSymValue[i-1] * multiplier;
-							//printf("symValue = %d\n", symValue); //debug
-							decimalPower++;
-						}
-						//st.symbolL[st.numSymbols].relvalue = symValue;
-						st.symbolL[st.numSymbols].absvalue = ml.mlist[ml.numModules-1].start_position + symValue;
+							st.symbolL[st.numSymbols].relvalue = symValue;
+							//st.symbolL[st.numSymbols].absvalue = ml.mlist[ml.numModules-1].start_position + symValue;
 
-						tempSymValuePos = 0;
-						//end of this symbol; increment symbol table count
-						st.numSymbols++;
+							tempSymValuePos = 0;
+							//end of this symbol; increment symbol table count
+							st.numSymbols++;
+						}
 					}
 
 					defsRemaining--;
@@ -206,6 +227,8 @@ int main() {
 				}
 			} else if(usesRemaining > 0) {
 				//printf("UR > 0\n"); //debug
+
+
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
 					usesRemaining--;
 				}
@@ -246,6 +269,22 @@ int main() {
 					//capture type and 'word' for each instruction
 					instructionsRemaining = (int)(curChar - '0') * 2;
 					nextMemLocation += (int)(curChar - '0');
+
+					/*
+					nextMemLocation is also the size of the current module plus 1 (0 based counting)
+					check symbol values do not exceed the module size
+					*/
+					if(st.symbolL[st.numSymbols-1].relvalue > nextMemLocation-1){
+						printf("Warning: Module %d: ", ml.numModules);
+						int i;
+						for(i=0; i < st.symbolL[st.numSymbols-1].numChar; i++){
+							printf("%c", st.symbolL[st.numSymbols-1].symbolDef[i]);
+						}
+						printf(" to big %d (max=%d) assume zero relative\n", st.symbolL[st.numSymbols-1].relvalue, nextMemLocation-1);
+						st.symbolL[st.numSymbols-1].absvalue = ml.mlist[ml.numModules-1].start_position + 0;
+					} else {
+						st.symbolL[st.numSymbols-1].absvalue = ml.mlist[ml.numModules-1].start_position + st.symbolL[st.numSymbols-1].relvalue;
+					}
 					
 					if(instructionsRemaining == 0) {
 						nextType = definitions;
@@ -269,7 +308,7 @@ int main() {
 			}*/
 		}//end skip whitespace
 		
-	}//end loop
+	}//END FIRST PASS
 
 	//print symbol table after first pass
 	printf("Symbol Table\n");
@@ -281,6 +320,10 @@ int main() {
 		}
 		printf("=");
 		printf("%d", st.symbolL[i].absvalue);
+		if(st.symbolL[i].isDuplicate){
+			printf(" Error: This variable is multiple times defined; first value used");
+		}
+		printf("\n");
 	}
 	printf("\n");
 
