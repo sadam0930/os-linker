@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 #include "error_handler.h"
 
 #define machine_size 512
@@ -73,7 +74,7 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-15";
+	char * filename = "labsamples/input-14";
 	// char filename[max_filename_size];
 	// printf("Enter filename: ");
 	// scanf("%s", filename);
@@ -132,6 +133,8 @@ int main() {
 		}
 		
 		if(curChar == '\n'){
+			// printf("defsRemaining = %d\n", defsRemaining); //debug
+			// printf("nextType = %d\n", nextType); //debug
 			if(nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
 				__parseerror(lineNum, offset, 1);
 				exit(1);
@@ -165,10 +168,16 @@ int main() {
 						exit(1);
 					}
 				} else {
-					//curChar is a relative symbol value
-					tempSymValue[tempSymValuePos] = (int)(curChar - '0');
-					tempSymValuePos++;
-					//printf("tempSymValue = %d\n", tempSymValue[tempSymValuePos-1]); //debug
+					//curChar should be a relative symbol value
+					//check
+					if(isalpha(curChar)){
+						__parseerror(lineNum, offset-1, 0);
+						exit(1);
+					} else {
+						tempSymValue[tempSymValuePos] = (int)(curChar - '0');
+						tempSymValuePos++;
+						//printf("tempSymValue = %d\n", tempSymValue[tempSymValuePos-1]); //debug
+					}
 				}
 
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
@@ -344,34 +353,82 @@ int main() {
 						}
 
 						tempSymValuePos = 0;
-
-						nextType = uses;
+						if(defsRemaining == 0){
+							nextType = uses;
+						}
 					} 
 				} else if(nextType == uses) {
-					usesRemaining = (int)(curChar - '0');
+					tempSymValue[tempSymValuePos] = curChar;
+					tempSymValuePos++;
+					
+					if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+						int i;
+						int decimalPower = 0;
+						for(i=tempSymValuePos-1; i >= 0; i--){
+							// printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+							int multiplier = 10;
+							if(decimalPower == 0){
+								multiplier = 1;
+							} else {
+								multiplier = pow(multiplier, decimalPower);
+							}
+							//printf("multiplier = %d\n", multiplier); //debug
+							usesRemaining += (int)(tempSymValue[i] - '0') * multiplier;
+							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							decimalPower++;
+						}
 
-					if(usesRemaining == 0) {
-						nextType = instructions;
+						if(usesRemaining > DEF_LIMIT){
+							__parseerror(lineNum, offset-tempSymValuePos, 5);
+							exit(1);
+						}
+
+						tempSymValuePos = 0;
+
+						if(usesRemaining == 0) {
+							nextType = instructions;
+						}
 					}
 				} else if(nextType == instructions) {
-					//capture type and 'word' for each instruction
-					instructionsRemaining = (int)(curChar - '0') * 2;
-					nextMemLocation += (int)(curChar - '0');
-					totalInstructions += nextMemLocation;
-
-					//printf("instRem = %d\n", instructionsRemaining);//debug
-					if(totalInstructions > machine_size || (instructionsRemaining/2 > machine_size-1)){
-						__parseerror(lineNum, offset, 6);
-						exit(1);
-					}
-
-					/*
-					nextMemLocation is also the size of the current module plus 1 (0 based counting)
-					*/
-					ml.mlist[ml.numModules-1].module_size = nextMemLocation;
+					tempSymValue[tempSymValuePos] = curChar;
+					tempSymValuePos++;
 					
-					if(instructionsRemaining == 0) {
-						nextType = definitions;
+					if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+						int i;
+						int decimalPower = 0;
+						for(i=tempSymValuePos-1; i >= 0; i--){
+							// printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+							int multiplier = 10;
+							if(decimalPower == 0){
+								multiplier = 1;
+							} else {
+								multiplier = pow(multiplier, decimalPower);
+							}
+							//printf("multiplier = %d\n", multiplier); //debug
+							instructionsRemaining += (int)(tempSymValue[i] - '0') * multiplier;
+							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							decimalPower++;
+						}
+						nextMemLocation += instructionsRemaining;
+						totalInstructions += nextMemLocation;
+
+						if(totalInstructions > machine_size || (instructionsRemaining > machine_size-1)){
+							__parseerror(lineNum, offset-tempSymValuePos, 6);
+							exit(1);
+						} else {
+							instructionsRemaining *= 2;
+						}
+
+						/*
+						nextMemLocation is also the size of the current module plus 1 (0 based counting)
+						*/
+						ml.mlist[ml.numModules-1].module_size = nextMemLocation;
+
+						tempSymValuePos = 0;
+
+						if(instructionsRemaining == 0) {
+							nextType = definitions;
+						}
 					}
 				}
 			}
@@ -774,17 +831,72 @@ int main() {
 						nextType = uses;
 					} 
 				} else if(nextType == uses) {
-					usesRemaining = (int)(curChar - '0');
+					tempSymValue[tempSymValuePos] = curChar;
+					tempSymValuePos++;
+					
+					if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+						int i;
+						int decimalPower = 0;
+						for(i=tempSymValuePos-1; i >= 0; i--){
+							// printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+							int multiplier = 10;
+							if(decimalPower == 0){
+								multiplier = 1;
+							} else {
+								multiplier = pow(multiplier, decimalPower);
+							}
+							//printf("multiplier = %d\n", multiplier); //debug
+							usesRemaining += (int)(tempSymValue[i] - '0') * multiplier;
+							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							decimalPower++;
+						}
 
-					if(usesRemaining == 0) {
-						nextType = instructions;
+						if(usesRemaining > DEF_LIMIT){
+							__parseerror(lineNum, offset-tempSymValuePos, 5);
+							exit(1);
+						}
+
+						tempSymValuePos = 0;
+
+						if(usesRemaining == 0) {
+							nextType = instructions;
+						}
 					}
 				} else if(nextType == instructions) {
-					//capture type and 'word' for each instruction
-					instructionsRemaining = (int)(curChar - '0') * 2;
+					tempSymValue[tempSymValuePos] = curChar;
+					tempSymValuePos++;
 					
-					if(instructionsRemaining == 0) {
-						nextType = definitions;
+					if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+						int i;
+						int decimalPower = 0;
+						for(i=tempSymValuePos-1; i >= 0; i--){
+							// printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+							int multiplier = 10;
+							if(decimalPower == 0){
+								multiplier = 1;
+							} else {
+								multiplier = pow(multiplier, decimalPower);
+							}
+							//printf("multiplier = %d\n", multiplier); //debug
+							instructionsRemaining += (int)(tempSymValue[i] - '0') * multiplier;
+							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							decimalPower++;
+						}
+						nextMemLocation += instructionsRemaining;
+						totalInstructions += nextMemLocation;
+
+						if(totalInstructions > machine_size || (instructionsRemaining > machine_size-1)){
+							__parseerror(lineNum, offset-tempSymValuePos, 6);
+							exit(1);
+						} else {
+							instructionsRemaining *= 2;
+						}
+
+						tempSymValuePos = 0;
+
+						if(instructionsRemaining == 0) {
+							nextType = definitions;
+						}
 					}
 				}
 			}
