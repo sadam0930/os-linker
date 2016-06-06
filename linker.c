@@ -74,10 +74,10 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-1";
-	// char filename[max_filename_size];
-	// printf("Enter filename: ");
-	// scanf("%s", filename);
+	//char * filename = "labsamples/input-1";
+	char filename[max_filename_size];
+	printf("Enter filename: ");
+	scanf("%s", filename);
 
 	//read file character by character
 	FILE *fp;
