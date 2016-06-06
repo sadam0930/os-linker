@@ -77,7 +77,7 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-10";
+	char * filename = "labsamples/input-1";
 	// char filename[max_filename_size];
 	// printf("Enter filename: ");
 	// scanf("%s", filename);
@@ -234,18 +234,18 @@ int main() {
 				tempSymSize++;
 
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
-					struct module thisMod = ml.mlist[ml.numModules-1];
+					//struct module thisMod = ml.mlist[ml.numModules-1];
 					int i;
 					for (i=0; i < tempSymSize; i++){
-						thisMod.ul.useL[thisMod.ul.numUses].symbol[i] = tempSym[i];
-						thisMod.ul.useL[thisMod.ul.numUses].numChar++;
+						ml.mlist[ml.numModules-1].ul.useL[ml.mlist[ml.numModules-1].ul.numUses].symbol[i] = tempSym[i];
+						ml.mlist[ml.numModules-1].ul.useL[ml.mlist[ml.numModules-1].ul.numUses].numChar++;
 					}
-					/*printf("symbol in use: "); //deb
-					for(i=0; i<thisMod.ul.useL[thisMod.ul.numUses].numChar; i++){
-						printf("%c", thisMod.ul.useL[thisMod.ul.numUses].symbol[i]);//debug	
+					/*printf("symbol in use: "); //debug
+					for(i=0; i<ml.mlist[ml.numModules-1].ul.useL[ml.mlist[ml.numModules-1].ul.numUses].numChar; i++){
+						printf("%c", ml.mlist[ml.numModules-1].ul.useL[ml.mlist[ml.numModules-1].ul.numUses].symbol[i]);//debug	
 					}
 					printf("\n");*/
-					thisMod.ul.numUses++;
+					ml.mlist[ml.numModules-1].ul.numUses++;
 
 					//reset tempSym
 					tempSymSize = 0;
@@ -365,6 +365,7 @@ int main() {
 	rewind(fp);
 	struct module curMod;
 	int whichModule = -1;
+	bool illegal;
 
 	while(fscanf(fp, "%c", &curChar) != EOF) {
 		//printf("%c\n", curChar); //debug
@@ -446,14 +447,107 @@ int main() {
 						//it's an address or immediate instruction
 						int i;
 						for(i=0; i < tempSymSize; i++){
+							//printf("%c", tempSym[i]); //debug
 							curMod.pt.instL[curMod.pt.numInst].strInstr[i] = tempSym[i];
+							curMod.pt.instL[curMod.pt.numInst].numChar++;	
+							//printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[i]); //debug
 						}
 						//print memory map
-						printf("%03d: \n", curMod.start_position + curMod.pt.numInst);
+						printf("%03d: ", curMod.start_position + curMod.pt.numInst);
+						
+						int s;
+						int absaddress = 0;
+						int decimalPower = 0;
+						//printf("type = %c\n", curMod.pt.instL[curMod.pt.numInst].type);//debug
+						switch(curMod.pt.instL[curMod.pt.numInst].type) {
+							case 'I':
+								//printf("in I"); //debug
+								//printf("numChar = %d ", curMod.pt.instL[curMod.pt.numInst].numChar); //debug
+								for(s=0; s < curMod.pt.instL[curMod.pt.numInst].numChar ;s++){
+									//printf("in for"); //debug
+									printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[s]);
+								}
+								break;
+							case 'R':
+								if(curMod.pt.instL[curMod.pt.numInst].numChar > 4){
+									printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[0]); //opcode
+									absaddress = 999;
+									illegal = true;
+								} else {
+									printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[0]); //opcode
+									//add relative address to module start position
+									for(s=curMod.pt.instL[curMod.pt.numInst].numChar-1; s > 0; s--){
+										// printf("char = %c", curMod.pt.instL[curMod.pt.numInst].strInstr[s]); //debug
+										int multiplier = 10;
+										if(decimalPower == 0){
+											multiplier = 1;
+										} else {
+											multiplier ^= decimalPower;
+										}
+										absaddress += (int)(curMod.pt.instL[curMod.pt.numInst].strInstr[s] - '0') * multiplier;
+										decimalPower++;
+									}
+									absaddress += curMod.start_position;
+								}
+								
+								printf("%03d", absaddress);
+								if(illegal){
+									printf(" Error: Illegal opcode; treated as 9999");
+								}
+								break;
+							case 'A':
+								for(s=0; s < curMod.pt.instL[curMod.pt.numInst].numChar ;s++){
+									//printf("in for"); //debug
+									printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[s]);
+								}
+								break;
+							case 'E':
+								printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[0]); //opcode
+								//replace with symbol value where operand is index of the symbol in symbol table
+								//printf("numChar = %d ", curMod.pt.instL[curMod.pt.numInst].numChar); //debug
+								for(s=curMod.pt.instL[curMod.pt.numInst].numChar-1; s > 0; s--){
+									// printf("char = %c", curMod.pt.instL[curMod.pt.numInst].strInstr[s]); //debug
+									int multiplier = 10;
+									if(decimalPower == 0){
+										multiplier = 1;
+									} else {
+										multiplier ^= decimalPower;
+									}
+									absaddress += (int)(curMod.pt.instL[curMod.pt.numInst].strInstr[s] - '0') * multiplier;
+									decimalPower++;
+								}
+								//printf("absaddress = %d ", absaddress); //debug
+								/*for(int j=0; j < st.symbolL[absaddress].numChar; j++){
+									printf("%c", st.symbolL[absaddress].symbolDef[j]);
+								}
+								printf(" symValue = %d ", st.symbolL[absaddress].absvalue); //debug*/
+								//get the use symbol and find it in the symbol table
+								/*for(s=0; s < curMod.ul.useL[absaddress].numChar; s++){
+									printf("%c", curMod.ul.useL[absaddress].symbol[s]);
+								}*/	
+								for(s=0; s < st.numSymbols; s++){
+									//printf(" in for "); //debug
+									if(curMod.ul.useL[absaddress].numChar == 1){
+										if(st.symbolL[s].symbolDef[0] == curMod.ul.useL[absaddress].symbol[0]){
+											absaddress = st.symbolL[s].absvalue;
+										}
+									}
+									if(strcmp(st.symbolL[s].symbolDef, curMod.ul.useL[absaddress].symbol) == 0){
+										//printf("absValue = %d", st.symbolL[s].absvalue);//debug
+										absaddress = st.symbolL[s].absvalue;
+										//printf(" symValue = %d ", st.symbolL[s].absvalue); //debug
+									}
+								}
+								
+								printf("%03d", absaddress);
+								break;
+						}
+						printf("\n");
 
 						curMod.pt.numInst++;
 					}
 
+					tempSymSize = 0;
 					instructionsRemaining--;
 				}
 
