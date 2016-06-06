@@ -4,7 +4,7 @@ dependencies:
 error_handler.h
 
 to compile:
-gcc -o linker linker.c
+gcc -lm -o linker linker.c
 
 to run:
 ./linker
