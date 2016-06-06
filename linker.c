@@ -134,7 +134,7 @@ int main() {
 		
 		if(curChar == '\n'){
 			// printf("defsRemaining = %d\n", defsRemaining); //debug
-			// printf("nextType = %d\n", nextType); //debug
+			printf("nextType = %d\n", nextType); //debug
 			if(nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
 				__parseerror(lineNum, offset, 1);
 				exit(1);
