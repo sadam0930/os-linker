@@ -74,7 +74,7 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-14";
+	char * filename = "labsamples/input-18";
 	// char filename[max_filename_size];
 	// printf("Enter filename: ");
 	// scanf("%s", filename);
@@ -120,7 +120,7 @@ int main() {
 
 	//FIRST PASS
 	while(fscanf(fp, "%c", &curChar) != EOF) {
-		//printf("curChar = %c\n", curChar); //debug
+		// printf("curChar = %c\n", curChar); //debug
 		
 		/*
 		peek at next character
@@ -137,6 +137,11 @@ int main() {
 			// printf("nextType = %d\n", nextType); //debug
 			if(nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
 				__parseerror(lineNum, offset, 1);
+				exit(1);
+			}
+
+			if(nextType == instructions && instructionsRemaining > 0 && instructionsRemaining%2 == 0){
+				__parseerror(lineNum, offset, 2);
 				exit(1);
 			}
 
@@ -255,6 +260,15 @@ int main() {
 			} else if(usesRemaining > 0) {
 				//printf("UR > 0\n"); //debug
 				//construct symbol to put into uselist
+				//check next character is alpha
+				if(tempSymSize == 0){
+					if(!isalpha(curChar)){
+						//printf("curChar = %c\n", curChar); //debug
+						__parseerror(lineNum, offset-1, 1);
+						exit(1);
+					}
+				}
+
 				tempSym[tempSymSize] = curChar;
 				tempSymSize++;
 
