@@ -347,24 +347,6 @@ int main() {
 
 						nextType = uses;
 					} 
-
-					// module new_module;
-					// new_module.start_position = nextMemLocation;
-					// ml.mlist[ml.numModules] = new_module;
-					// ml.numModules++;
-					// //printf("start position = %d\n", new_module.start_position); //debug
-
-					// //capture symbol and value for each def
-					// defsRemaining = (int)(curChar - '0') * 2;
-
-					// if(defsRemaining/2 > DEF_LIMIT){
-					// 	__parseerror(lineNum, offset, 4);
-					// 	exit(1);
-					// }
-
-					// if(defsRemaining == 0){
-					// 	nextType = uses;
-					// }
 				} else if(nextType == uses) {
 					usesRemaining = (int)(curChar - '0');
 
@@ -753,12 +735,44 @@ int main() {
 					//printf("whichModule = %d ", whichModule); //debug
 					curMod = ml.mlist[whichModule];
 
-					//capture symbol and value for each def
-					defsRemaining = (int)(curChar - '0') * 2;
+					tempSymValue[tempSymValuePos] = curChar;
+					tempSymValuePos++;
+					
+					if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+						//printf("in if\n"); //debug
+						module new_module;
+						new_module.start_position = nextMemLocation;
+						ml.mlist[ml.numModules] = new_module;
+						ml.numModules++;
+						//printf("start position = %d\n", new_module.start_position); //debug
 
-					if(defsRemaining == 0){
+						int i;
+						int decimalPower = 0;
+						for(i=tempSymValuePos-1; i >= 0; i--){
+							// printf("tempSymValuePos = %d\n", tempSymValuePos); //debug
+							int multiplier = 10;
+							if(decimalPower == 0){
+								multiplier = 1;
+							} else {
+								multiplier = pow(multiplier, decimalPower);
+							}
+							//printf("multiplier = %d\n", multiplier); //debug
+							defsRemaining += (int)(tempSymValue[i] - '0') * multiplier;
+							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							decimalPower++;
+						}
+
+						if(defsRemaining > DEF_LIMIT){
+							__parseerror(lineNum, offset-tempSymValuePos, 4);
+							exit(1);
+						} else {
+							defsRemaining *= 2;
+						}
+
+						tempSymValuePos = 0;
+
 						nextType = uses;
-					}
+					} 
 				} else if(nextType == uses) {
 					usesRemaining = (int)(curChar - '0');
 
