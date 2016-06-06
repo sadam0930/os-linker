@@ -74,7 +74,7 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-18";
+	char * filename = "labsamples/input-1";
 	// char filename[max_filename_size];
 	// printf("Enter filename: ");
 	// scanf("%s", filename);
@@ -130,16 +130,22 @@ int main() {
 		char nextChar;
 		if (fscanf(fp, "%c", &nextChar) != EOF) {
 			fseek(fp, -1, SEEK_CUR);
+		} else {
+			//nextChar == EOF
+			if(curChar == '\n' && nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
+				__parseerror(lineNum, offset, 1);
+				exit(1);
+			}
 		}
 		
 		if(curChar == '\n'){
 			// printf("defsRemaining = %d\n", defsRemaining); //debug
-			printf("nextType = %d\n", nextType); //debug
-			if(nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
+			// printf("nextType = %d\n", nextType); //debug
+			/*if(nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
 				__parseerror(lineNum, offset, 1);
 				exit(1);
 			}
-
+*/
 			if(nextType == instructions && instructionsRemaining > 0 && instructionsRemaining%2 == 0){
 				__parseerror(lineNum, offset, 2);
 				exit(1);
