@@ -7,11 +7,7 @@
 
 #define machine_size 512
 #define max_filename_size 255
-
-// struct def {
-// 	char symbol[16];
-// 	int value;
-// };
+#define DEF_LIMIT 16
 
 struct symbol {
 	char symbolDef[16];
@@ -20,6 +16,8 @@ struct symbol {
 	int absvalue;
 	bool isDuplicate;
 	bool valToBig;
+	bool wasUsed;
+	int whichModule;
 };
 
 struct defList {
@@ -42,10 +40,6 @@ struct instruction {
 	char type;
 	char strInstr[16];
 	int numChar;
-	// int opcode;
-	// int reladdress;
-	// int absaddress;
-	// int immediate;
 };
 
 struct programText {
@@ -79,7 +73,7 @@ struct symbolTable {
 
 int main() {
 	//get filename
-	char * filename = "labsamples/input-9";
+	char * filename = "labsamples/input-1";
 	// char filename[max_filename_size];
 	// printf("Enter filename: ");
 	// scanf("%s", filename);
@@ -118,6 +112,10 @@ int main() {
 	bool isDefSym = false;
 	bool isInstType = false;
 	bool isDuplicate = false;
+	bool found = false;
+
+	int lineNum = 1;
+	int offset = 1;
 
 	//FIRST PASS
 	while(fscanf(fp, "%c", &curChar) != EOF) {
@@ -133,6 +131,17 @@ int main() {
 			fseek(fp, -1, SEEK_CUR);
 		}
 		
+		if(curChar == '\n'){
+			if(nextType == definitions && defsRemaining > 0 && defsRemaining%2 == 0){
+				__parseerror(lineNum, offset, 1);
+				exit(1);
+			}
+
+			lineNum++;
+			offset = 1;
+		} else {
+			offset++;
+		}
 
 		//skip whitespace
 		if(curChar != ' ' && curChar != '\t' && curChar != '\n'){
@@ -151,6 +160,10 @@ int main() {
 					//collect each char for symbol
 					tempSym[tempSymSize] = curChar;
 					tempSymSize++;
+					if(tempSymSize > DEF_LIMIT){
+						__parseerror(lineNum, offset, 3);
+						exit(1);
+					}
 				} else {
 					//curChar is a relative symbol value
 					tempSymValue[tempSymValuePos] = (int)(curChar - '0');
@@ -183,6 +196,7 @@ int main() {
 								//printf("tempSym = %c\n", tempSym[i]); //debug
 								new_symbol.symbolDef[i] = tempSym[i];
 								new_symbol.numChar++;
+								new_symbol.whichModule = ml.numModules;
 							}
 							st.symbolL[st.numSymbols] = new_symbol;
 							ml.mlist[ml.numModules-1].dl.defL[ml.mlist[ml.numModules-1].dl.numDefs] = new_symbol;
@@ -235,6 +249,11 @@ int main() {
 				tempSym[tempSymSize] = curChar;
 				tempSymSize++;
 
+				if(tempSymSize > DEF_LIMIT){
+					__parseerror(lineNum, offset, 3);
+					exit(1);
+				}
+
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
 					//struct module thisMod = ml.mlist[ml.numModules-1];
 					int i;
@@ -258,8 +277,30 @@ int main() {
 					nextType = instructions;
 				}
 			} else if(instructionsRemaining > 0) {
-				//printf("IR > 0\n"); //debug
+				if(instructionsRemaining%2 == 0){
+					isInstType = true;
+				} else {
+					isInstType = false;
+				}
+
+				//get each digit of address/immediate
+				if(!isInstType){
+					tempSym[tempSymSize] = curChar;
+					tempSymSize++;
+				}
+
 				if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
+					if(isInstType){	
+						
+					} else {
+						//printf("tempSymSize = %d\n", tempSymSize); //debug
+						if(tempSymSize < 4){
+							__parseerror(lineNum, offset, 2);
+							exit(1);
+						}
+					}
+
+					tempSymSize = 0;
 					instructionsRemaining--;
 				}
 
@@ -277,6 +318,11 @@ int main() {
 					//capture symbol and value for each def
 					defsRemaining = (int)(curChar - '0') * 2;
 
+					if(defsRemaining > DEF_LIMIT*2){
+						__parseerror(lineNum, offset, 4);
+						exit(1);
+					}
+
 					if(defsRemaining == 0){
 						nextType = uses;
 					}
@@ -292,6 +338,11 @@ int main() {
 					nextMemLocation += (int)(curChar - '0');
 					totalInstructions += nextMemLocation;
 
+					//printf("instRem = %d\n", instructionsRemaining);//debug
+					if(totalInstructions > machine_size || (instructionsRemaining/2 > machine_size-1)){
+						__parseerror(lineNum, offset, 6);
+						exit(1);
+					}
 
 					/*
 					nextMemLocation is also the size of the current module plus 1 (0 based counting)
@@ -574,25 +625,55 @@ int main() {
 								/*for(s=0; s < curMod.ul.useL[absaddress].numChar; s++){
 									printf("%c", curMod.ul.useL[absaddress].symbol[s]);
 								}	*/
-								for(s=0; s < st.numSymbols; s++){
-									//printf(" in for "); //debug
-									if(curMod.ul.useL[absaddress].numChar == 1){
-										if(st.symbolL[s].symbolDef[0] == curMod.ul.useL[absaddress].symbol[0]){
-											curMod.ul.useL[absaddress].wasUsed = true;
-											absaddress = st.symbolL[s].absvalue;
-										}
-									}
-									if(strcmp(st.symbolL[s].symbolDef, curMod.ul.useL[absaddress].symbol) == 0){
-										//printf("absValue = %d", st.symbolL[s].absvalue);//debug
+								if(absaddress > curMod.ul.numUses){
+									exceeds = true;
+								} else {
+									exceeds = false;
+									found = false;
+
+									if(curMod.ul.useL[absaddress].symbol[0] != 0){
 										curMod.ul.useL[absaddress].wasUsed = true;
-										absaddress = st.symbolL[s].absvalue;
-										//printf("add = %d ", absaddress); //debug
-										//printf("wasUsed1 = %d ", curMod.ul.useL[absaddress].wasUsed); //debug
-										//printf(" symValue = %d ", st.symbolL[s].absvalue); //debug
+									}
+
+									for(s=0; s < st.numSymbols; s++){
+										if(curMod.ul.useL[absaddress].numChar == 1){
+											if(st.symbolL[s].symbolDef[0] == curMod.ul.useL[absaddress].symbol[0]){
+												found = true;
+												// curMod.ul.useL[absaddress].wasUsed = true;
+												st.symbolL[s].wasUsed = true;
+												absaddress = st.symbolL[s].absvalue;
+											}
+										} else {
+											if(strcmp(st.symbolL[s].symbolDef, curMod.ul.useL[absaddress].symbol) == 0){
+												//printf("absValue = %d", st.symbolL[s].absvalue);//debug
+												found = true;
+												// curMod.ul.useL[absaddress].wasUsed = true;
+												st.symbolL[s].wasUsed = true;
+												absaddress = st.symbolL[s].absvalue;
+												//printf("add = %d ", absaddress); //debug
+												//printf("wasUsed1 = %d ", curMod.ul.useL[absaddress].wasUsed); //debug
+												//printf(" symValue = %d ", st.symbolL[s].absvalue); //debug
+											}
+										}
 									}
 								}
 								
-								printf("%03d", absaddress);
+								if(!found){
+									printf("%03d", 0);
+								} else {
+									printf("%03d", absaddress);
+								}
+								
+								if(exceeds){
+									printf(" Error: External address exceeds length of uselist; treated as immediate");
+								} else if(!found){
+									printf(" Error: ");
+									int i;
+									for(i=0; i < curMod.ul.useL[absaddress].numChar; i++){
+										printf("%c", curMod.ul.useL[absaddress].symbol[i]);
+									}
+									printf(" is not defined; zero used");
+								}
 								break;
 						}
 						printf("\n");
@@ -657,6 +738,19 @@ int main() {
 		}//end skip whitespace
 		
 	}//END SECOND PASS
+
+	//check for defined but unused symbols in symbol table
+	for(i=0; i < st.numSymbols; i++){
+		if(!st.symbolL[i].wasUsed){
+			printf("\n");
+			printf("Warning: Module %d: ", st.symbolL[i].whichModule);
+			int w;
+			for(w=0; w < st.symbolL[i].numChar; w++){
+				printf("%c", st.symbolL[i].symbolDef[w]);
+			}
+			printf(" was defined but never used\n");
+		}
+	}
 
 	printf("\n\n");
 
