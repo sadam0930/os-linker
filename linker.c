@@ -22,11 +22,23 @@ contain logic to account for where the pointer is in the file in reference to
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
-#include "error_handler.h"
 
 #define machine_size 512
 #define max_filename_size 255
 #define DEF_LIMIT 16
+
+void __parseerror(int linenum, int lineoffset, int errcode) {
+	static char* errstr[] = {
+		"NUM_EXPECTED", // Number expect 0
+		"SYM_EXPECTED", // Symbol Expected 1 
+		"ADDR_EXPECTED", // Addressing Expected 2
+		"SYM_TOLONG", // Symbol Name is to long 
+		"TO_MANY_DEF_IN_MODULE", // > 16 
+		"TO_MANY_USE_IN_MODULE", // > 16 
+		"TO_MANY_INSTR" // total num_instr exceeds memory size (512) 
+	};
+	printf("Parse Error line %d offset %d: %s\n", linenum, lineoffset, errstr[errcode]);
+} 
 
 struct symbol {
 	char symbolDef[16];
