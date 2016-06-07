@@ -348,10 +348,10 @@ int main() {
 						
 					} else {
 						//printf("tempSymSize = %d\n", tempSymSize); //debug
-						if(tempSymSize < 4){
-							__parseerror(lineNum, offset, 2);
-							exit(1);
-						}
+						// if(tempSymSize < 4){
+						// 	__parseerror(lineNum, offset, 2);
+						// 	exit(1);
+						// }
 					}
 
 					tempSymSize = 0;
@@ -647,6 +647,12 @@ int main() {
 								if(curMod.pt.instL[curMod.pt.numInst].numChar > 4){
 									printf("9999 Error: Illegal immediate value; treated as 9999");
 								} else {
+									if(curMod.pt.instL[curMod.pt.numInst].numChar < 4){
+										//print leading zeros
+										for(s=0; s < (4-curMod.pt.instL[curMod.pt.numInst].numChar); s++){
+											printf("0");
+										}
+									}
 									for(s=0; s < curMod.pt.instL[curMod.pt.numInst].numChar; s++){
 	 									//printf("in for"); //debug
 	 									printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[s]);
