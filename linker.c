@@ -752,7 +752,7 @@ int main() {
 								/*for(s=0; s < curMod.ul.useL[absaddress].numChar; s++){
 									printf("%c", curMod.ul.useL[absaddress].symbol[s]);
 								}	*/
-								if(absaddress > curMod.ul.numUses){
+								if(absaddress >= curMod.ul.numUses){
 									exceeds = true;
 								} else {
 									exceeds = false;
@@ -761,7 +761,6 @@ int main() {
 									if(curMod.ul.useL[absaddress].symbol[0] != 0){
 										curMod.ul.useL[absaddress].wasUsed = true;
 									}
-
 									for(s=0; s < st.numSymbols; s++){
 										if(curMod.ul.useL[absaddress].numChar == 1){
 											if(st.symbolL[s].symbolDef[0] == curMod.ul.useL[absaddress].symbol[0]){
@@ -800,7 +799,7 @@ int main() {
 									printf("%03d", 0);
 									printf(" Error: ");
 									int i;
-									// printf(" numChar = %d ", curMod.ul.useL[absaddress]); //debug
+									// printf(" numChar = %d ", curMod.ul.useL[absaddress].numChar); //debug
 									for(i=0; i < curMod.ul.useL[absaddress].numChar; i++){
 										printf("%c", curMod.ul.useL[absaddress].symbol[i]);
 									}
