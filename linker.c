@@ -1,3 +1,21 @@
+/*
+Author: Steven Adam
+
+Dear Reader,
+
+This code is not the best example of my work, but I am new to C
+and ended up trying to plow through parsing each file. 
+I would have benefitted from creating some reuseable functions.
+I apologize for the spaghetti code below.
+
+Synopsis:
+Perform two passes (while loops) over a given input file. Both loops
+contain logic to account for where the pointer is in the file in reference to
+- definition list
+- use list
+- instruction list (or sometimes called program text)
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -100,7 +118,7 @@ int main() {
 	st.numSymbols = 0;
 	int totalInstructions = 0;
 
-	char tempSym[16];
+	char tempSym[16] = "";
 	int tempSymSize = 0;
 	int tempSymValue[512];
 	int tempSymValuePos = 0;
@@ -136,16 +154,15 @@ int main() {
 				__parseerror(lineNum, offset, 1);
 				exit(1);
 			}
+			if(nextType == instructions && instructionsRemaining > 0 && instructionsRemaining%2 == 0){
+				__parseerror(lineNum, offset, 2);
+				exit(1);
+			}
 		}
 		
 		if(curChar == '\n'){
 			// printf("defsRemaining = %d\n", defsRemaining); //debug
 			// printf("nextType = %d\n", nextType); //debug
-			if(nextType == instructions && instructionsRemaining > 0 && instructionsRemaining%2 == 0){
-				__parseerror(lineNum, offset, 2);
-				exit(1);
-			}
-
 			lineNum++;
 			offset = 1;
 		} else {
@@ -166,9 +183,19 @@ int main() {
 				}
 
 				if(isDefSym){
+					//check next character is alpha
+					if(tempSymSize == 0){
+						if(!isalpha(curChar)){
+							//printf("curChar = %c\n", curChar); //debug
+							__parseerror(lineNum, offset-1, 1);
+							exit(1);
+						}
+					}
+					
 					//collect each char for symbol
 					tempSym[tempSymSize] = curChar;
 					tempSymSize++;
+
 					if(tempSymSize > DEF_LIMIT){
 						__parseerror(lineNum, offset, 3);
 						exit(1);
@@ -203,6 +230,7 @@ int main() {
 						}
 
 						if(!isDuplicate){
+							// printf("isDuplicate = %d\n", isDuplicate); //debug
 							struct symbol new_symbol;
 							new_symbol.numChar = 0;
 
@@ -219,6 +247,7 @@ int main() {
 
 						//reset temp symbol size for next symbol
 						tempSymSize = 0;
+						memset(tempSym,0,sizeof(tempSym));
 					} else {
 						//printf("in else\n"); //debug
 						//curChar is a relative symbol value
@@ -244,13 +273,13 @@ int main() {
 							ml.mlist[ml.numModules-1].dl.defL[ml.mlist[ml.numModules-1].dl.numDefs].relvalue = symValue;
 							//st.symbolL[st.numSymbols].absvalue = ml.mlist[ml.numModules-1].start_position + symValue;
 
-							tempSymValuePos = 0;
 							//end of this symbol; increment symbol table count
 							st.numSymbols++;
 							ml.mlist[ml.numModules-1].dl.numDefs++;
 						}
 					}
-
+					
+					tempSymValuePos = 0;
 					defsRemaining--;
 					//printf("DR -- %d\n", defsRemaining); //debug
 				}
@@ -294,6 +323,7 @@ int main() {
 
 					//reset tempSym
 					tempSymSize = 0;
+					memset(tempSym,0,sizeof(tempSym));
 					usesRemaining--;
 				}
 
@@ -325,6 +355,7 @@ int main() {
 					}
 
 					tempSymSize = 0;
+					memset(tempSym,0,sizeof(tempSym));
 					instructionsRemaining--;
 				}
 
@@ -332,6 +363,7 @@ int main() {
 					nextType = definitions;
 				}
 			} else { //next char is a count of pairs or uses
+				// printf("nextType = %d\n", nextType); //debug
 				if(nextType == definitions) {
 					tempSymValue[tempSymValuePos] = curChar;
 					tempSymValuePos++;
@@ -373,6 +405,7 @@ int main() {
 						}
 					} 
 				} else if(nextType == uses) {
+					// printf("tempSymValuePos1 = %d\n", tempSymValuePos); //debug
 					tempSymValue[tempSymValuePos] = curChar;
 					tempSymValuePos++;
 					
@@ -389,7 +422,7 @@ int main() {
 							}
 							//printf("multiplier = %d\n", multiplier); //debug
 							usesRemaining += (int)(tempSymValue[i] - '0') * multiplier;
-							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							// printf("usesRemaining = %d\n", usesRemaining); //debug
 							decimalPower++;
 						}
 
@@ -421,7 +454,7 @@ int main() {
 							}
 							//printf("multiplier = %d\n", multiplier); //debug
 							instructionsRemaining += (int)(tempSymValue[i] - '0') * multiplier;
-							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							// printf("instructionsRemaining = %d\n", instructionsRemaining); //debug
 							decimalPower++;
 						}
 						nextMemLocation += instructionsRemaining;
@@ -448,7 +481,7 @@ int main() {
 				}
 			}
 			// printf("defsRemaining = %d  \n", defsRemaining); //debug
-			//printf("usesRemaining = %d \n", usesRemaining); //debug
+			// printf("usesRemaining = %d \n", usesRemaining); //debug
 			//printf("instructionsRemaining = %d  \n", instructionsRemaining); //debug
 			//printf("nextType = %d\n", nextType); //debug
 			/*int i;
@@ -515,7 +548,7 @@ int main() {
 	bool exceeds;
 
 	while(fscanf(fp, "%c", &curChar) != EOF) {
-		//printf("%c\n", curChar); //debug
+		// printf("curChar = %c\n", curChar); //debug
 		
 		/*
 		peek at next character
@@ -600,6 +633,7 @@ int main() {
 							//printf("%c", curMod.pt.instL[curMod.pt.numInst].strInstr[i]); //debug
 						}
 						//print memory map
+						//printf("startPos = %d\n", curMod.start_position); //debug
 						printf("%03d: ", curMod.start_position + curMod.pt.numInst);
 						
 						int s;
@@ -731,6 +765,7 @@ int main() {
 									for(s=0; s < st.numSymbols; s++){
 										if(curMod.ul.useL[absaddress].numChar == 1){
 											if(st.symbolL[s].symbolDef[0] == curMod.ul.useL[absaddress].symbol[0]){
+												// printf("found1\n"); //debug
 												found = true;
 												// curMod.ul.useL[absaddress].wasUsed = true;
 												st.symbolL[s].wasUsed = true;
@@ -738,7 +773,8 @@ int main() {
 											}
 										} else {
 											if(strcmp(st.symbolL[s].symbolDef, curMod.ul.useL[absaddress].symbol) == 0){
-												//printf("absValue = %d", st.symbolL[s].absvalue);//debug
+												// printf("absValue = %d", st.symbolL[s].absvalue);//debug
+												// printf("found2\n"); //debug
 												found = true;
 												// curMod.ul.useL[absaddress].wasUsed = true;
 												st.symbolL[s].wasUsed = true;
@@ -751,21 +787,26 @@ int main() {
 									}
 								}
 								
-								if(!found){
-									printf("%03d", 0);
-								} else {
-									printf("%03d", absaddress);
-								}
+								// if(!found){
+								// 	printf("%03d", 0);
+								// } else {
+								// 	printf("%03d", absaddress);
+								// }
 								
 								if(exceeds){
+									printf("%03d", absaddress);
 									printf(" Error: External address exceeds length of uselist; treated as immediate");
 								} else if(!found){
+									printf("%03d", 0);
 									printf(" Error: ");
 									int i;
+									// printf(" numChar = %d ", curMod.ul.useL[absaddress]); //debug
 									for(i=0; i < curMod.ul.useL[absaddress].numChar; i++){
 										printf("%c", curMod.ul.useL[absaddress].symbol[i]);
 									}
 									printf(" is not defined; zero used");
+								} else {
+									printf("%03d", absaddress);
 								}
 								break;
 						}
@@ -775,6 +816,7 @@ int main() {
 					}
 
 					tempSymSize = 0;
+					memset(tempSym,0,sizeof(tempSym));
 					instructionsRemaining--;
 				}
 
@@ -802,21 +844,21 @@ int main() {
 				}
 			} else { //next char is a count of pairs or uses
 				if(nextType == definitions) {
-					//start module
-					whichModule++;
-					//printf("whichModule = %d ", whichModule); //debug
-					curMod = ml.mlist[whichModule];
-
 					tempSymValue[tempSymValuePos] = curChar;
 					tempSymValuePos++;
 					
 					if(nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == EOF){
 						//printf("in if\n"); //debug
-						module new_module;
-						new_module.start_position = nextMemLocation;
-						ml.mlist[ml.numModules] = new_module;
-						ml.numModules++;
+						// module new_module;
+						// new_module.start_position = nextMemLocation;
+						// ml.mlist[ml.numModules] = new_module;
+						// ml.numModules++;
 						//printf("start position = %d\n", new_module.start_position); //debug
+
+						//start module
+						whichModule++;
+						//printf("whichModule = %d ", whichModule); //debug
+						curMod = ml.mlist[whichModule];
 
 						int i;
 						int decimalPower = 0;
@@ -866,10 +908,10 @@ int main() {
 							decimalPower++;
 						}
 
-						if(usesRemaining > DEF_LIMIT){
-							__parseerror(lineNum, offset-tempSymValuePos, 5);
-							exit(1);
-						}
+						// if(usesRemaining > DEF_LIMIT){
+						// 	__parseerror(lineNum, offset-tempSymValuePos, 5);
+						// 	exit(1);
+						// }
 
 						tempSymValuePos = 0;
 
@@ -894,7 +936,7 @@ int main() {
 							}
 							//printf("multiplier = %d\n", multiplier); //debug
 							instructionsRemaining += (int)(tempSymValue[i] - '0') * multiplier;
-							// printf("defsRemaining = %d\n", defsRemaining); //debug
+							// printf("instructionsRemaining = %d\n", instructionsRemaining); //debug
 							decimalPower++;
 						}
 						nextMemLocation += instructionsRemaining;
@@ -920,9 +962,9 @@ int main() {
 	}//END SECOND PASS
 
 	//check for defined but unused symbols in symbol table
+	printf("\n");
 	for(i=0; i < st.numSymbols; i++){
 		if(!st.symbolL[i].wasUsed){
-			printf("\n");
 			printf("Warning: Module %d: ", st.symbolL[i].whichModule);
 			int w;
 			for(w=0; w < st.symbolL[i].numChar; w++){
