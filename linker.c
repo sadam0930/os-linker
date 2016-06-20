@@ -102,18 +102,26 @@ struct symbolTable {
 	struct symbol symbolL[256];
 };
 
-int main() {
+int main(int argc, char **argv) {
 	//get filename
 	//char * filename = "labsamples/input-1";
-	char filename[max_filename_size];
-	printf("Enter filename: ");
-	scanf("%s", filename);
+	// char filename[max_filename_size];
+	// printf("Enter filename: ");
+	// scanf("%s", filename);
+
+	if (argc < 2) {
+	    /* no argument */
+	    /* give error message and exit */
+	    printf("Must pass a filename!\n");
+	    exit(1);
+	}
+
 
 	//read file character by character
 	FILE *fp;
-	fp = fopen(filename, "r");
+	fp = fopen(argv[1], "r");
 	if(fp == NULL) {
-		printf("Cannot open file: %s\n", filename);
+		printf("Cannot open file: %s\n", argv[1]);
 		exit(1);
 	}
 
