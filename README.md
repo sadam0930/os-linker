@@ -5,10 +5,7 @@ simple-linker
 `gcc -lm -o linker linker.c`
 
 # To run:
-`./linker`
-
-**Max File Path = 255 characters**  
-Defined as max_filename_size
+`./linker filepath`
 
 Dear Reader,
 
